@@ -68,6 +68,11 @@ class V_OrderPageView extends V_BaseView {
       });
 
       this.displaySuccess(`Your refund request for order ${orderId} has been submitted successfully.`);
+      
+      // Wait 1 second then reload the page
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error("Error creating refund ticket:", error);
       console.error("Error response:", error.response?.data);
@@ -113,7 +118,27 @@ class V_OrderPageView extends V_BaseView {
           });
           return Promise.reject();
         }
-        return this.submitRefundRequest(orderId, reason);
+        
+        // Show confirmation dialog before submitting
+        return new Promise((resolve, reject) => {
+          Modal.confirm({
+            title: "Confirm Refund Request",
+            content: "Are you sure you want to submit this refund request?",
+            okText: "Yes",
+            cancelText: "No",
+            onOk: async () => {
+              try {
+                await this.submitRefundRequest(orderId, reason);
+                resolve();
+              } catch (error) {
+                reject(error);
+              }
+            },
+            onCancel: () => {
+              reject();
+            },
+          });
+        });
       },
     });
   }
