@@ -211,9 +211,11 @@ class V_HomepageView extends V_BaseView {
 
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignContent: "center" }}>
-              <Text strong style={{ fontSize: 25, color: "#333" }}>
-                New Products
-              </Text>
+              <Link to="/laptops/all">
+                <Text strong style={{ fontSize: 25, color: "#333", cursor: "pointer" }}>
+                  New Products
+                </Text>
+              </Link>
               <Button 
                 type="primary" 
                 onClick={() => window.location.href = '/laptops/all'} 
