@@ -194,14 +194,28 @@ class V_CatalogPageView extends V_BaseView {
       const response = await axios.get(
         `${import.meta.env.VITE_BACKEND_URL}/laptops/filter${query}`
       );
-      const transformedData = transformLaptopData(response.data.results);
+      
+      // Validate response structure
+      if (!response.data) {
+        throw new Error('No data received from server');
+      }
+      
+      const results = response.data.results || [];
+      const totalCount = response.data.total_count || 0;
+      
+      const transformedData = transformLaptopData(results);
       this.setState({
         productsList: transformedData,
-        totalProductsCount: response.data.total_count,
+        totalProductsCount: totalCount,
       });
     } catch (error) {
       this.displayError("Failed to load products");
       console.error("Error fetching products:", error);
+      // Set empty state on error
+      this.setState({
+        productsList: [],
+        totalProductsCount: 0,
+      });
     }
   }
 

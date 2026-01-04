@@ -1,4 +1,10 @@
 const transformLaptopData = (data) => {
+  // Handle case where data is undefined, null, or not an array
+  if (!data || !Array.isArray(data)) {
+    console.warn('transformLaptopData received invalid data:', data);
+    return [];
+  }
+  
   return data.map((item) => {
     // Handle product_images - it might be a string or already parsed array
     let imageUrls = [];
