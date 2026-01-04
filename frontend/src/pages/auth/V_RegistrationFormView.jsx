@@ -357,7 +357,7 @@ class V_RegistrationFormView extends V_BaseView {
                     🎉 Account Created Successfully! 🎉
                   </Title>
                   <p style={{ fontSize: "1.2rem" }}>
-                    Your account has been created. You can now sign in using
+                    Your account has been created. You can now login using
                     your credentials.
                   </p>
                   <Link to="/customer/login">

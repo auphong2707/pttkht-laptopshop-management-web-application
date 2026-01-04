@@ -100,7 +100,7 @@ const AccountMenu = () => {
             style={{ fontWeight: "bold" }}
             onClick={() => navigate("/customer/login")}
           >
-            Sign In
+            Login
           </Menu.Item>
         </>
       )}

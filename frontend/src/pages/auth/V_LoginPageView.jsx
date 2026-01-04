@@ -130,7 +130,7 @@ class V_LoginPageView extends V_BaseView {
               >
                 <Title level={4}>Registered Customers</Title>
                 <Text>
-                  If you have an account, sign in with your email address.
+                  If you have an account, login with your email address.
                 </Text>
 
                 <Form
@@ -193,7 +193,7 @@ class V_LoginPageView extends V_BaseView {
                         fontWeight: "bold",
                       }}
                     >
-                      Sign In
+                      Login
                     </Button>
                     <Link
                       href="#"
