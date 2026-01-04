@@ -1,0 +1,10 @@
+FROM postgres:17
+
+# Install pg_cron extension
+RUN apt-get update \
+    && apt-get install -y postgresql-17-cron \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable pg_cron by modifying postgresql.conf
+RUN sed -i "s/^#shared_preload_libraries.*/shared_preload_libraries = 'pg_cron'/g" /usr/share/postgresql/postgresql.conf.sample \
+    && echo "cron.database_name = 'postgres'" >> /usr/share/postgresql/postgresql.conf.sample

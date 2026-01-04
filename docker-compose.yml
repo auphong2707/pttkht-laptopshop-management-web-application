@@ -1,0 +1,133 @@
+services:
+  # PostgreSQL Database with pg_cron extension
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: laptopshop-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - laptopshop-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch for search functionality
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.3
+    container_name: laptopshop-elasticsearch
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - discovery.type=${ES_DISCOVERY_TYPE}
+      - xpack.security.enabled=${ES_SECURITY_ENABLED}
+      - action.destructive_requires_name=${ES_DESTRUCTIVE_REQUIRES_NAME}
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS}
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - laptopshop-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Logstash for syncing PostgreSQL to Elasticsearch
+  logstash:
+    build:
+      context: .
+      dockerfile: Dockerfile.logstash
+    container_name: laptopshop-logstash
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "5044:5044"
+    networks:
+      - laptopshop-network
+
+  # Backend FastAPI service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: laptopshop-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Database configuration
+      PGHOST: ${PGHOST}
+      PGPORT: ${PGPORT}
+      PGUSER: ${PGUSER}
+      PGPASSWORD: ${PGPASSWORD}
+      PGDATABASE: ${PGDATABASE}
+      # Elasticsearch configuration
+      ELASTICSEARCH_HOST: ${ELASTICSEARCH_HOST}
+      ELASTICSEARCH_PORT: ${ELASTICSEARCH_PORT}
+      # JWT Authentication
+      SECRET_KEY: ${SECRET_KEY}
+      ADMIN_CREATION_SECRET: ${ADMIN_CREATION_SECRET}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - laptopshop-network
+
+  # Frontend React/Vite service
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: laptopshop-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - laptopshop-network
+    command: npm run dev -- --host 0.0.0.0
+
+networks:
+  laptopshop-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  elasticsearch-data:
+    driver: local

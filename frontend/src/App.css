@@ -1,0 +1,33 @@
+/* Swiper Navigation Buttons */
+.swiper-button-prev,
+.swiper-button-next {
+  color: black !important; /* Change arrow color to black */
+  scale: 0.5;
+}
+
+/* Show arrows on hover */
+.product-slider-container:hover .swiper-button-prev,
+.product-slider-container:hover .swiper-button-next {
+  opacity: 1; /* Show arrows when hovering */
+}
+
+/* Ensure buttons are positioned correctly */
+.swiper-button-prev {
+  left: -2px;
+}
+
+.swiper-button-next {
+  right: -2px;
+}
+
+.ant-tabs-tab-btn {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.grid-division {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  height: auto;
+  column-gap: 30px;
+}
