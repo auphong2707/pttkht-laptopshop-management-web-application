@@ -57,7 +57,7 @@ const AccountMenu = () => {
               <Link to="/admin/inventory/all">Inventory</Link>
             </Menu.Item>
             <Menu.Item key="addProduct" style={{ fontWeight: "bold" }}>
-              <Link to="/admin/detail">Add Product</Link>
+              <Link to="/admin/detail">Add Products</Link>
             </Menu.Item>
 
             <Menu.Item key="refund" style={{ fontWeight: "bold" }}>
