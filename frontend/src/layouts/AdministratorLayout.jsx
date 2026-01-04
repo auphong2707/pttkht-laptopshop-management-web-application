@@ -9,7 +9,7 @@ const pathToName = {
   dashboard: "Dashboard",
   inventory: "Inventory",
   detail: "Product Detail",
-  refund: "Refund Requests",
+  refund: "Refund Tickets",
   "stock-alerts": "Stock Alerts",
   orders: "Orders",
 };

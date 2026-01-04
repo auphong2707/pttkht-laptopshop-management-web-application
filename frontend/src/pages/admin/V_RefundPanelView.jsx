@@ -115,7 +115,7 @@ class V_RefundPanelView extends V_BaseView {
 
     return (
       <div style={{ paddingTop: "2rem" }}>
-        <h2 style={{ marginBottom: "2rem" }}>Refund Requests</h2>
+        <h2 style={{ marginBottom: "2rem" }}>Refund Tickets</h2>
         {isLoading && <p>Loading...</p>}
 
         {!isLoading && pendingTickets.length === 0 && <p>No refund requests found.</p>}
