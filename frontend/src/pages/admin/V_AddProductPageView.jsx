@@ -43,9 +43,10 @@ class V_AddProductPageView extends V_BaseView {
       
       const timestamp = Date.now();
       const filename = `${timestamp}_${file.name}`;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
       
       const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/laptops/upload-temp/products/${filename}`,
+        `${backendUrl}/laptops/upload-temp/products/${filename}`,
         formData,
         {
           headers: {
@@ -108,7 +109,8 @@ class V_AddProductPageView extends V_BaseView {
         original_price: values.sale_price || 0,
       };
 
-      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/laptops/`, productData, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      await axios.post(`${backendUrl}/laptops/`, productData, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

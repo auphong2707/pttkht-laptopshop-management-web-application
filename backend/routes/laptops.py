@@ -67,8 +67,44 @@ def insert_laptop(laptop: LaptopCreate, db: Session = Depends(get_db)):
             # Update the filepath in the list
             laptop.product_images[i] = f"/static/laptop_images/{filename}"
 
-
-    new_laptop = M_Laptop(**laptop.dict())
+    # Map snake_case fields to camelCase for M_Laptop model
+    laptop_data = laptop.dict()
+    new_laptop = M_Laptop(
+        brand=laptop_data["brand"],
+        subBrand=laptop_data["sub_brand"],
+        modelName=laptop_data["name"],
+        specSummary=laptop_data["description"],
+        usageType=laptop_data["usage_type"],
+        cpu=laptop_data["cpu"],
+        vga=laptop_data["vga"],
+        ramAmount=laptop_data["ram_amount"],
+        ramType=laptop_data["ram_type"],
+        storageAmount=laptop_data["storage_amount"],
+        storageType=laptop_data["storage_type"],
+        webcamResolution=laptop_data["webcam_resolution"],
+        screenSize=laptop_data["screen_size"],
+        screenResolution=laptop_data["screen_resolution"],
+        screenRefreshRate=laptop_data["screen_refresh_rate"],
+        screenBrightness=laptop_data["screen_brightness"],
+        batteryCapacity=laptop_data["battery_capacity"],
+        batteryCells=laptop_data["battery_cells"],
+        weight=str(laptop_data["weight"]),
+        defaultOs=laptop_data["default_os"],
+        warranty=laptop_data["warranty"],
+        width=laptop_data["width"],
+        depth=laptop_data["depth"],
+        height=laptop_data["height"],
+        numberUsbAPorts=laptop_data["number_usb_a_ports"],
+        numberUsbCPorts=laptop_data["number_usb_c_ports"],
+        numberHdmiPorts=laptop_data["number_hdmi_ports"],
+        numberEthernetPorts=laptop_data["number_ethernet_ports"],
+        numberAudioJacks=laptop_data["number_audio_jacks"],
+        productImages=laptop_data["product_images"],
+        stockQty=laptop_data["quantity"],
+        originalPrice=laptop_data["original_price"],
+        price=laptop_data["sale_price"],
+        isActive=True,
+    )
     db.add(new_laptop)
     db.commit()
     db.refresh(new_laptop)
