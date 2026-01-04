@@ -220,15 +220,15 @@ const ShoppingItemsTable = ({ setTotalPrice, setCartItems: updateParentCartItems
   const handleRemoveItem = (product) => {
     Modal.confirm({
       title: `Do you want to delete the product "${product.name}" from the cart?`,
-      okText: "Confirm",
+      okText: "Yes",
       cancelText: "Cancel",
       onOk: async () => {
         try {
           const token = getToken();
           if (!token) throw new Error("User not authenticated");
 
-          // Use the cart item ID, not the laptop ID
-          await axios.delete(`http://localhost:8000/cart/remove/${product.cartItemId}`, {
+          // Use the laptop ID as expected by the backend endpoint
+          await axios.delete(`http://localhost:8000/cart/remove/${product.id}`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -237,6 +237,9 @@ const ShoppingItemsTable = ({ setTotalPrice, setCartItems: updateParentCartItems
           // Remove from UI
           const updatedItems = cartItems.filter((item) => item.id !== product.id);
           setCartItems(updatedItems);
+          if (updateParentCartItems) {
+            updateParentCartItems(updatedItems);
+          }
           setSubTotals(updatedItems.map((item) => item.sale_price * item.quantity));
 
           // Show success message
@@ -246,6 +249,10 @@ const ShoppingItemsTable = ({ setTotalPrice, setCartItems: updateParentCartItems
           });
         } catch (err) {
           console.error("Error removing item from cart:", err);
+          Modal.error({
+            title: "Failed to remove item",
+            content: err.response?.data?.detail || err.message,
+          });
         }
       },
     });
