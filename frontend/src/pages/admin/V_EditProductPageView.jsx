@@ -1,5 +1,5 @@
 import React from "react";
-import { Layout, Form, Input, InputNumber, Button, Typography, Select, Divider, Spin, Upload, Image, message } from "antd";
+import { Layout, Form, Input, InputNumber, Button, Typography, Select, Divider, Spin, Upload, Image, message, Modal } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import V_BaseView from "@components/V_BaseView";
 import axios from "axios";
@@ -45,45 +45,57 @@ class V_EditProductPageView extends V_BaseView {
    * Design method: Update product information
    */
   async updateProductData() {
-    try {
-      this.setState({ isSaving: true });
-      const values = await this.formRef.current.validateFields();
-      const token = localStorage.getItem("accessToken");
+    Modal.confirm({
+      title: "Update Product",
+      content: "Are you sure you want to update this product?",
+      okText: "Yes",
+      cancelText: "No",
+      onOk: async () => {
+        try {
+          this.setState({ isSaving: true });
+          const values = await this.formRef.current.validateFields();
+          const token = localStorage.getItem("accessToken");
 
-      // Process images - extract filepaths from fileList
-      const imageUrls = this.state.fileList.map((file) => {
-        if (file.filepath) {
-          return file.filepath; // Existing image
-        } else if (file.response && file.response.filepath) {
-          return file.response.filepath; // Newly uploaded image
+          // Process images - extract filepaths from fileList
+          const imageUrls = this.state.fileList.map((file) => {
+            if (file.filepath) {
+              return file.filepath; // Existing image
+            } else if (file.response && file.response.filepath) {
+              return file.response.filepath; // Newly uploaded image
+            }
+            return null;
+          }).filter(Boolean);
+
+          // Map form field names back to API field names
+          const payload = {
+            ...values,
+            quantity: values.stock_quantity, // Map stock_quantity back to quantity
+            product_images: imageUrls,
+          };
+          delete payload.stock_quantity; // Remove the form-specific field
+
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+          await axios.put(
+            `${backendUrl}/laptops/${this.state.selectedProductId}`,
+            payload,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          this.displaySuccess("Product updated successfully");
+          this.setState({ isSaving: false });
+          window.location.href = "/admin/inventory";
+        } catch (error) {
+          this.setState({ isSaving: false });
+          this.displayError("Failed to update product");
+          console.error("Error updating product:", error);
         }
-        return null;
-      }).filter(Boolean);
-
-      // Map form field names back to API field names
-      const payload = {
-        ...values,
-        quantity: values.stock_quantity, // Map stock_quantity back to quantity
-        product_images: imageUrls,
-      };
-      delete payload.stock_quantity; // Remove the form-specific field
-
-      await axios.put(
-        `${import.meta.env.VITE_BACKEND_URL}/laptops/${this.state.selectedProductId}`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      this.displaySuccess("Product updated successfully");
-      this.setState({ isSaving: false });
-      window.location.href = "/admin/inventory";
-    } catch (error) {
-      this.setState({ isSaving: false });
-      this.displayError("Failed to update product");
-      console.error("Error updating product:", error);
-    }
+      },
+      onCancel: () => {
+        // Do nothing when cancelled
+      },
+    });
   }
 
   /**
