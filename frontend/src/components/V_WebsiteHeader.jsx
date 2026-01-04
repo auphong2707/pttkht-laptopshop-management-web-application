@@ -72,6 +72,9 @@ const AccountMenu = () => {
               <Menu.Item key="account" style={{ fontWeight: "bold" }}>
                 <Link to="/customer/accountInformation">Account Information</Link>
               </Menu.Item>
+              <Menu.Item key="cart" style={{ fontWeight: "bold" }}>
+                <Link to="/shopping-cart">My Cart</Link>
+              </Menu.Item>
               <Menu.Item key="orders" style={{ fontWeight: "bold" }}>
                 <Link to="/customer/orders">My Orders</Link>
               </Menu.Item>
