@@ -91,7 +91,7 @@ class V_ProductPageView extends V_BaseView {
       );
 
       if (response.status === 200 || response.status === 201) {
-        this.displaySuccess("Review submitted successfully!");
+        this.displaySuccess("Thank you for your feedback!");
         this.setState({
           userRatingInput: 0,
           userReviewText: "",
