@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
-import { Flex, Typography, Layout, Space, Menu, Dropdown, Avatar, Input, Modal } from "antd";
+import { Flex, Typography, Layout, Space, Menu, Dropdown, Avatar, Input, Modal, message } from "antd";
 import { useNavigate, Link } from "react-router-dom";
 import {
   FacebookFilled,
   InstagramFilled,
   ShoppingCartOutlined,
   UserOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 
 import { useUser } from "../utils/UserContext";
 import { logout } from "../utils/authService";
+import axios from "axios";
 
 import logo from "/vite.svg";
 
@@ -30,8 +32,57 @@ const headerStyle = {
 
 const AccountMenu = () => {
   const [open, setOpen] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [laptopId, setLaptopId] = useState("");
   const navigate = useNavigate();
   const { user, clearUser } = useUser();
+
+  const handleDeleteLaptop = async () => {
+    if (!laptopId || !laptopId.trim()) {
+      message.error("Please enter a laptop ID");
+      return;
+    }
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const response = await axios.get(`${backendUrl}/laptops/id/${laptopId}`);
+      const laptop = response.data;
+
+      setDeleteModalVisible(false);
+      setLaptopId("");
+
+      Modal.confirm({
+        title: "Delete Product",
+        content: `Are you sure you want to permanently delete "${laptop.name}"? This action cannot be undone.`,
+        okText: "Yes",
+        okType: "danger",
+        cancelText: "No",
+        onOk: async () => {
+          try {
+            const token = localStorage.getItem("accessToken");
+            await axios.delete(
+              `${backendUrl}/laptops/${laptopId}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            message.success("Product deleted successfully");
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          } catch (error) {
+            message.error("Failed to delete product");
+            console.error("Error deleting product:", error);
+          }
+        },
+      });
+    } catch (error) {
+      message.error("Laptop not found");
+      console.error("Error fetching laptop:", error);
+    }
+  };
 
   const handleMenuClick = (e) => {
     setOpen(false);
@@ -39,6 +90,8 @@ const AccountMenu = () => {
       logout();
       clearUser();
       navigate("/customer/login");
+    } else if (e.key === "deleteLaptop") {
+      setDeleteModalVisible(true);
     } else if (e.key === "account") {
       // navigate("/my-account"); // Route to the user's account page
     }
@@ -59,9 +112,11 @@ const AccountMenu = () => {
             <Menu.Item key="addProduct" style={{ fontWeight: "bold" }}>
               <Link to="/admin/detail">Add Products</Link>
             </Menu.Item>
-
+            <Menu.Item key="deleteLaptop" style={{ fontWeight: "bold" }}>
+              Delete Laptop
+            </Menu.Item>
             <Menu.Item key="refund" style={{ fontWeight: "bold" }}>
-              <Link to="/admin/refund">Refund Requests</Link>
+              <Link to="/admin/refund">Refund Tickets</Link>
             </Menu.Item>
             <Menu.Item key="orders" style={{ fontWeight: "bold" }}>
               <Link to="/admin/orders">Orders</Link>
@@ -111,19 +166,42 @@ const AccountMenu = () => {
   );
 
   return (
-    <Dropdown
-      overlay={menu}
-      trigger={["click"]}
-      open={open}
-      onOpenChange={setOpen}
-      placement="bottom"
-      overlayStyle={{ paddingRight: "145px" }}
-    >
-      <Avatar
-        icon={<UserOutlined />}
-        style={{ cursor: "pointer" }}
-      />
-    </Dropdown>
+    <>
+      <Dropdown
+        overlay={menu}
+        trigger={["click"]}
+        open={open}
+        onOpenChange={setOpen}
+        placement="bottom"
+        overlayStyle={{ paddingRight: "145px" }}
+      >
+        <Avatar
+          icon={<UserOutlined />}
+          style={{ cursor: "pointer" }}
+        />
+      </Dropdown>
+      
+      <Modal
+        title="Delete Laptop"
+        open={deleteModalVisible}
+        onOk={handleDeleteLaptop}
+        onCancel={() => {
+          setDeleteModalVisible(false);
+          setLaptopId("");
+        }}
+        okText="Submit"
+        cancelText="Cancel"
+      >
+        <p>Enter the laptop ID to delete:</p>
+        <Input
+          placeholder="Laptop ID"
+          value={laptopId}
+          onChange={(e) => setLaptopId(e.target.value)}
+          onPressEnter={handleDeleteLaptop}
+          type="number"
+        />
+      </Modal>
+    </>
   );
 };
 

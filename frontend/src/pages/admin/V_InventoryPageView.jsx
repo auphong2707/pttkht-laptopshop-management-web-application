@@ -1,6 +1,6 @@
 import React from "react";
-import { Layout, Table, Button, Input, Tag, Space, Typography } from "antd";
-import { SearchOutlined, PlusOutlined } from "@ant-design/icons";
+import { Layout, Table, Button, Input, Tag, Space, Typography, Modal } from "antd";
+import { SearchOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import V_BaseView from "@components/V_BaseView";
 import axios from "axios";
 
@@ -70,6 +70,43 @@ class V_InventoryPageView extends V_BaseView {
    */
   navigateToEditProduct(productId) {
     window.location.href = `/admin/products/edit/${productId}`;
+  }
+
+  /**
+   * deleteProduct(productId, productName)
+   * Design method: Delete product with confirmation
+   */
+  deleteProduct(productId, productName) {
+    Modal.confirm({
+      title: "Delete Product",
+      content: `Are you sure you want to permanently delete "${productName}"? This action cannot be undone.`,
+      okText: "Yes",
+      okType: "danger",
+      cancelText: "No",
+      onOk: async () => {
+        try {
+          const token = localStorage.getItem("accessToken");
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+          
+          await axios.delete(
+            `${backendUrl}/laptops/${productId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          this.displaySuccess("Product deleted successfully");
+          
+          // Wait 1 second then reload the page
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } catch (error) {
+          this.displayError("Failed to delete product");
+          console.error("Error deleting product:", error);
+        }
+      },
+    });
   }
 
   /**
@@ -161,6 +198,14 @@ class V_InventoryPageView extends V_BaseView {
               onClick={() => this.navigateToEditProduct(record.id)}
             >
               Edit
+            </Button>
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => this.deleteProduct(record.id, record.name)}
+            >
+              Delete
             </Button>
           </Space>
         ),
