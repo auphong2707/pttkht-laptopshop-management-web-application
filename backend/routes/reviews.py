@@ -8,31 +8,30 @@ from db.models import M_Review, M_Laptop
 from schemas.reviews import ReviewCreate, ReviewResponse
 from services.auth import get_current_user_id
 from db.session import get_db
+from controllers.C_ReviewController import C_ReviewController
+from controllers.C_ProductController import C_ProductController
 
 reviews_router = APIRouter(prefix="/reviews", tags=["reviews"])
 
 
 @reviews_router.post("/", response_model=ReviewResponse)
 async def create_review(review: ReviewCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
-    # Check if the laptop with the provided laptop_id exists
-    laptop = db.query(M_Laptop).filter(M_Laptop.laptopId == review.laptop_id).first()
-
-    if not laptop:
-        raise HTTPException(status_code=404, detail="Laptop not found")
-
-    new_review = M_Review(
-        userId=user_id,
-        laptopId=review.laptop_id,
-        rating=review.rating,
-        comment=review.review_text,
-        createdAt=datetime.utcnow(),
-    )
-
-    db.add(new_review)
-    db.commit()
-    db.refresh(new_review)
-
-    return new_review
+    controller = C_ReviewController(db)
+    
+    try:
+        # Use controller to validate and store review
+        review_id = controller.validateAndStoreReview(
+            userId=user_id,
+            laptopId=review.laptop_id,
+            rating=review.rating,
+            comment=review.review_text
+        )
+        
+        # Fetch and return the created review
+        new_review = db.query(M_Review).filter(M_Review.reviewId == review_id).first()
+        return new_review
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @reviews_router.get("/user", response_model=list[ReviewResponse])
 async def get_reviews_by_user(
@@ -54,13 +53,19 @@ async def get_reviews_by_laptop(
     skip: int = Query(0, ge=0),
     db: Session = Depends(get_db)
 ):
-    # Check if the laptop exists
-    laptop = db.query(M_Laptop).filter(M_Laptop.laptopId == laptop_id).first()
+    product_controller = C_ProductController(db)
+    
+    # Check if the laptop exists using controller
+    laptop = product_controller.getLaptopDetails(laptop_id)
     if not laptop:
         raise HTTPException(status_code=404, detail="Laptop not found")
     
-    # Get reviews for this laptop
-    reviews = db.query(M_Review).filter(M_Review.laptopId == laptop_id).offset(skip).all()
+    # Get reviews for this laptop using controller
+    reviews = product_controller.getLaptopReviews(laptop_id)
+    
+    # Apply pagination manually
+    if skip > 0:
+        reviews = reviews[skip:]
     
     if not reviews:
         return []

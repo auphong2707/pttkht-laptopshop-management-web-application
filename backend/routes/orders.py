@@ -15,6 +15,7 @@ from schemas.orders import (
 from datetime import datetime
 
 from services.auth import get_current_user_id, get_current_admin_user, get_current_user
+from controllers.C_OrderController import C_OrderController
 
 # --- Create Router ---
 orders_router = APIRouter(prefix="/orders", tags=["orders"])
@@ -218,23 +219,18 @@ def get_my_orders(
     Retrieves a paginated list of orders for the currently authenticated user
     from the PostgreSQL database.
     """
+    controller = C_OrderController(db)
     offset = (page - 1) * limit
 
     try:
-        # Query for the orders with pagination and eager loading of items
-        base_query = db.query(M_Order).filter(M_Order.userId == user_id)
-
+        # Use controller to view orders
+        all_orders = controller.viewOrders(user_id)
+        
         # Get total count for pagination
-        total_count = base_query.count()  # More efficient count
+        total_count = len(all_orders)
 
-        orders = (
-            base_query.order_by(M_Order.createdAt.desc())
-            .options(joinedload(M_Order.items))
-            .options(joinedload(M_Order.refundTickets))
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        # Apply pagination manually
+        orders = all_orders[offset:offset + limit]
 
         # Convert SQLAlchemy models to OrderResponse format
         formatted_orders = [
@@ -288,22 +284,21 @@ def get_my_single_M_Order(
     """
     Fetches a single order by authenticated user ID.
     """
+    controller = C_OrderController(db)
+    
     try:
-        order = (
-            db.query(M_Order)
-            .options(joinedload(M_Order.items))
-            .filter(M_Order.orderId == order_id, M_Order.userId == user_id)
-            .first()
-        )
+        # Use controller to get order detail
+        order = controller.getOrderDetail(order_id)
+        
+        # Verify order belongs to user
+        if not order or order.userId != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found or access denied.",
+            )
     except SQLAlchemyError as e:
         print(f"Database error fetching single order: {e}")
         raise HTTPException(status_code=500, detail="Could not retrieve order details.")
-
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found or access denied.",
-        )
     
     # Convert SQLAlchemy model to OrderResponse format
     return OrderResponse(
@@ -340,14 +335,13 @@ def cancel_my_M_Order(
     Allows the currently authenticated user to cancel their own order,
     if it is in a cancellable state (e.g., 'pending').
     """
+    controller = C_OrderController(db)
+    
     try:
-        order = (
-            db.query(M_Order)
-            .filter(M_Order.orderId == order_id, M_Order.userId == user_id)
-            .first()
-        )
+        # Get order using controller
+        order = controller.getOrderDetail(order_id)
 
-        if not order:
+        if not order or order.userId != user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Order not found or access denied.",
@@ -361,7 +355,7 @@ def cancel_my_M_Order(
                 detail=f"Order cannot be cancelled. Current status: {order.status}",
             )
 
-        # --- estore Stock ---
+        # --- Restore Stock ---
         order_items_to_restore = (
             db.query(M_OrderItem).filter(M_OrderItem.order_id == order_id).all()
         )
@@ -380,8 +374,8 @@ def cancel_my_M_Order(
                     f"Warning: Product ID {item.product_id} not found while restoring stock for cancelled order {order_id}"
                 )
 
-        order.status = "cancelled"
-        db.commit()
+        # Use controller to update order status
+        order = controller.updateOrderStatus(order_id, "cancelled", user_id)
         db.refresh(order)
         
         # Convert SQLAlchemy model to OrderResponse format
@@ -580,12 +574,16 @@ def admin_get_all_orders_unpaginated(
     dependencies=[Depends(require_admin_role)],
 )
 def admin_update_order_status(
-    order_id: int, status_data: UpdateStatus, db: Session = Depends(get_db)
+    order_id: int, 
+    status_data: UpdateStatus, 
+    db: Session = Depends(get_db),
+    admin_id: int = Depends(require_admin_role)
 ):
     """
     [Admin] Updates the status of any specific M_Order.
     Requires admin privileges.
     """
+    controller = C_OrderController(db)
 
     allowed_statuses = [
         "pending",
@@ -601,16 +599,13 @@ def admin_update_order_status(
         )
 
     try:
-        order = db.query(M_Order).filter(M_Order.orderId == order_id).first()
-        if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
-            )
+        # Use controller to update order status
+        order = controller.updateOrderStatus(order_id, status_data.status, admin_id)
 
-        order.status = status_data.status
-        db.commit()
-        db.refresh(order)
-
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
+        )
     except SQLAlchemyError as e:
         db.rollback()
         print(f"Database error updating order status (Admin): {e}")

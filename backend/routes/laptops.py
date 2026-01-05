@@ -9,6 +9,8 @@ from elasticsearch import Elasticsearch
 from db.models import M_Laptop
 from schemas.laptops import LaptopCreate, LaptopUpdate
 from db.session import get_db
+from controllers.C_InventoryController import C_InventoryController
+from controllers.C_ProductController import C_ProductController
 from fastapi import UploadFile, File
 from PIL import Image, ImageDraw, ImageFont
 from typing import List
@@ -55,6 +57,9 @@ async def upload_temp_file(file: UploadFile = File(...), folder_name: str = "tem
 
 @laptops_router.post("/")
 def insert_laptop(laptop: LaptopCreate, db: Session = Depends(get_db)):
+    controller = C_InventoryController(db)
+    
+    # Process images
     for i, filepath in enumerate(laptop.product_images):
         # Move the image to the static folder
         if not filepath.startswith("/static/laptop_images/"):
@@ -67,57 +72,54 @@ def insert_laptop(laptop: LaptopCreate, db: Session = Depends(get_db)):
             # Update the filepath in the list
             laptop.product_images[i] = f"/static/laptop_images/{filename}"
 
-    # Map snake_case fields to camelCase for M_Laptop model
-    laptop_data = laptop.dict()
-    new_laptop = M_Laptop(
-        brand=laptop_data["brand"],
-        subBrand=laptop_data["sub_brand"],
-        modelName=laptop_data["name"],
-        specSummary=laptop_data["description"],
-        usageType=laptop_data["usage_type"],
-        cpu=laptop_data["cpu"],
-        vga=laptop_data["vga"],
-        ramAmount=laptop_data["ram_amount"],
-        ramType=laptop_data["ram_type"],
-        storageAmount=laptop_data["storage_amount"],
-        storageType=laptop_data["storage_type"],
-        webcamResolution=laptop_data["webcam_resolution"],
-        screenSize=laptop_data["screen_size"],
-        screenResolution=laptop_data["screen_resolution"],
-        screenRefreshRate=laptop_data["screen_refresh_rate"],
-        screenBrightness=laptop_data["screen_brightness"],
-        batteryCapacity=laptop_data["battery_capacity"],
-        batteryCells=laptop_data["battery_cells"],
-        weight=str(laptop_data["weight"]),
-        defaultOs=laptop_data["default_os"],
-        warranty=laptop_data["warranty"],
-        width=laptop_data["width"],
-        depth=laptop_data["depth"],
-        height=laptop_data["height"],
-        numberUsbAPorts=laptop_data["number_usb_a_ports"],
-        numberUsbCPorts=laptop_data["number_usb_c_ports"],
-        numberHdmiPorts=laptop_data["number_hdmi_ports"],
-        numberEthernetPorts=laptop_data["number_ethernet_ports"],
-        numberAudioJacks=laptop_data["number_audio_jacks"],
-        productImages=laptop_data["product_images"],
-        stockQty=laptop_data["quantity"],
-        originalPrice=laptop_data["original_price"],
-        price=laptop_data["sale_price"],
-        isActive=True,
-    )
-    db.add(new_laptop)
-    db.commit()
-    db.refresh(new_laptop)
-    return {"message": "Laptop added successfully", "laptop": new_laptop}
+    # Use controller to create laptop
+    try:
+        laptop_data = laptop.dict()
+        laptop_id = controller.createNewLaptop(
+            brand=laptop_data.get('brand', ''),
+            modelName=laptop_data.get('name', laptop_data.get('model_name', '')),
+            specSummary=laptop_data.get('description', ''),
+            price=laptop_data.get('sale_price', 0),
+            stockQty=laptop_data.get('quantity', 0),
+            subBrand=laptop_data.get('sub_brand'),
+            usageType=laptop_data.get('usage_type'),
+            cpu=laptop_data.get('cpu'),
+            vga=laptop_data.get('vga'),
+            ramAmount=laptop_data.get('ram_amount'),
+            ramType=laptop_data.get('ram_type'),
+            storageAmount=laptop_data.get('storage_amount'),
+            storageType=laptop_data.get('storage_type'),
+            webcamResolution=laptop_data.get('webcam_resolution'),
+            screenSize=laptop_data.get('screen_size'),
+            screenResolution=laptop_data.get('screen_resolution'),
+            screenRefreshRate=laptop_data.get('screen_refresh_rate'),
+            screenBrightness=laptop_data.get('screen_brightness'),
+            batteryCapacity=laptop_data.get('battery_capacity'),
+            batteryCells=laptop_data.get('battery_cells'),
+            weight=laptop_data.get('weight'),
+            defaultOs=laptop_data.get('default_os'),
+            warranty=laptop_data.get('warranty'),
+            width=laptop_data.get('width'),
+            depth=laptop_data.get('depth'),
+            height=laptop_data.get('height'),
+            numberUsbAPorts=laptop_data.get('number_usb_a_ports'),
+            numberUsbCPorts=laptop_data.get('number_usb_c_ports'),
+            numberHdmiPorts=laptop_data.get('number_hdmi_ports'),
+            numberEthernetPorts=laptop_data.get('number_ethernet_ports'),
+            numberAudioJacks=laptop_data.get('number_audio_jacks'),
+            productImages=json.dumps(laptop.product_images),
+            originalPrice=laptop_data.get('original_price')
+        )
+        new_laptop = db.query(M_Laptop).filter(M_Laptop.laptopId == laptop_id).first()
+        return {"message": "Laptop added successfully", "laptop": new_laptop}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @laptops_router.delete("/{laptop_id}")
 def delete_laptop(laptop_id: int, db: Session = Depends(get_db)):
+    controller = C_InventoryController(db)
     try:
-        laptop = db.query(M_Laptop).filter(M_Laptop.laptopId == laptop_id).first()
-        if not laptop:
-            raise HTTPException(status_code=404, detail="Laptop not found")
-        
         # Check if laptop is referenced in any order items
         from db.models import M_OrderItem
         order_items_count = db.query(M_OrderItem).filter(M_OrderItem.laptopId == laptop_id).count()
@@ -127,12 +129,20 @@ def delete_laptop(laptop_id: int, db: Session = Depends(get_db)):
                 detail=f"Cannot delete laptop: it is referenced in {order_items_count} order(s). Please remove these orders first or use a soft delete."
             )
         
-        db.delete(laptop)
-        db.commit()
-        es.delete(index="laptops", id=laptop_id)
+        # Use controller to delete laptop (soft delete)
+        controller.deleteLaptop(laptop_id)
+        
+        # Remove from Elasticsearch
+        try:
+            es.delete(index="laptops", id=laptop_id)
+        except:
+            pass
+            
         return {"message": "Laptop deleted successfully"}
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Failed to delete laptop: {str(e)}")
@@ -142,12 +152,15 @@ def delete_laptop(laptop_id: int, db: Session = Depends(get_db)):
 def update_laptop(
     laptop_id: int, laptop_update: LaptopUpdate, db: Session = Depends(get_db)
 ):
+    controller = C_InventoryController(db)
     try:
+        update_data = laptop_update.dict(exclude_unset=True)
+        updates = {}
+        
+        # Get the laptop first for image processing
         laptop = db.query(M_Laptop).filter(M_Laptop.laptopId == laptop_id).first()
         if not laptop:
             raise HTTPException(status_code=404, detail="Laptop not found")
-
-        update_data = laptop_update.dict(exclude_unset=True)
         
         # Map snake_case field names to camelCase model attributes
         field_mapping = {
@@ -218,19 +231,18 @@ def update_laptop(
                         except:
                             pass
                     
-                    # Convert list to JSON string before setting
-                    setattr(laptop, "productImages", json.dumps(processed_images))
+                    # Convert list to JSON string before setting to updates
+                    updates["productImages"] = json.dumps(processed_images)
                 except Exception as e:
                     db.rollback()
                     raise HTTPException(status_code=400, detail=f"Image processing failed: {str(e)}")
             elif value is not None:
                 # Map the field name to the correct model attribute
                 attr_name = field_mapping.get(key, key)
-                if hasattr(laptop, attr_name):
-                    setattr(laptop, attr_name, value)
+                updates[attr_name] = value
 
-        db.commit()
-        db.refresh(laptop)
+        # Use controller to modify product
+        laptop = controller.modifyProduct(laptop_id, **updates)
         
         # Sync updated laptop data to Elasticsearch
         try:
@@ -549,6 +561,8 @@ def get_latest_laptops(
 
 @laptops_router.get("/id/{laptop_id}")
 def get_laptop(laptop_id: int, db: Session = Depends(get_db)):
+    controller = C_ProductController(db)
+    
     # Try to get from Elasticsearch first
     try:
         query = {"query": {"term": {"id": laptop_id}}}
@@ -565,8 +579,8 @@ def get_laptop(laptop_id: int, db: Session = Depends(get_db)):
     except Exception as es_error:
         print(f"Elasticsearch query failed: {es_error}, falling back to database")
     
-    # Fallback to database if Elasticsearch fails or is empty
-    laptop = db.query(M_Laptop).filter(M_Laptop.laptopId == laptop_id).first()
+    # Fallback to database using controller
+    laptop = controller.getLaptopDetails(laptop_id)
     if not laptop:
         raise HTTPException(status_code=404, detail="Laptop not found")
     
