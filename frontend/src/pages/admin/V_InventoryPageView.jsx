@@ -115,24 +115,37 @@ class V_InventoryPageView extends V_BaseView {
    */
   async fetchInventory() {
     try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
       const token = localStorage.getItem("accessToken");
+      
+      console.log("Fetching inventory from:", `${backendUrl}/laptops/filter?page=1&limit=1000`);
+      console.log("Using auth token:", token ? "Yes" : "No");
+      
       const response = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/laptops/filter?page=1&limit=1000`,
+        `${backendUrl}/laptops/filter?page=1&limit=1000`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
+      console.log("Inventory response:", response.data);
+
       this.setState({
-        productsList: response.data.results,
-        filteredProductsList: response.data.results,
-        totalProductsCount: response.data.total_count,
+        productsList: response.data.results || [],
+        filteredProductsList: response.data.results || [],
+        totalProductsCount: response.data.total_count || 0,
         isLoading: false,
       });
     } catch (error) {
       this.displayError("Failed to load inventory");
       console.error("Error fetching inventory:", error);
-      this.setState({ isLoading: false });
+      console.error("Error details:", error.response?.data);
+      this.setState({ 
+        productsList: [],
+        filteredProductsList: [],
+        totalProductsCount: 0,
+        isLoading: false 
+      });
     }
   }
 
@@ -143,6 +156,9 @@ class V_InventoryPageView extends V_BaseView {
   render() {
     const { filteredProductsList, searchKeyword, currentPageNumber, productsPerPage, isLoading } =
       this.state;
+
+    // Handle undefined or null filteredProductsList
+    const safeFilteredProductsList = filteredProductsList || [];
 
     const columns = [
       {
@@ -237,13 +253,13 @@ class V_InventoryPageView extends V_BaseView {
 
         <Table
           columns={columns}
-          dataSource={filteredProductsList}
+          dataSource={safeFilteredProductsList}
           rowKey="id"
           loading={isLoading}
           pagination={{
             current: currentPageNumber,
             pageSize: productsPerPage,
-            total: filteredProductsList.length,
+            total: safeFilteredProductsList.length,
             onChange: (page) => this.setState({ currentPageNumber: page }),
           }}
         />
